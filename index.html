@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONE CENTRAL HUB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background 0.3s; min-height: 100vh; margin: 0; }
+        .dark { background: #020617; color: #f8fafc; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; }
+        .active-tab { background: #3b82f6 !important; color: white; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+        #focus-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: #020617; flex-direction: column; align-items: center; justify-content: center; }
+        .timer-display { font-variant-numeric: tabular-nums; cursor: text; outline: none; }
+        
+        /* House Table & Receipt Styles */
+        .house-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .house-table th { color: #94a3b8; padding: 12px 20px; text-align: left; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; }
+        .house-table tr { background: rgba(255, 255, 255, 0.02); transition: all 0.2s; }
+        .house-table td { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .house-table tr td:first-child { border-left: 1px solid rgba(255,255,255,0.05); border-radius: 12px 0 0 12px; }
+        .house-table tr td:last-child { border-right: 1px solid rgba(255,255,255,0.05); border-radius: 0 12px 12px 0; }
+        .house-table td[contenteditable="true"]:focus { background: rgba(59, 130, 246, 0.1); outline: none; color: #60a5fa; }
+        
+        .status-paid { background: #065f46 !important; color: #34d399 !important; border: 1px solid #065f46; }
+        .status-pending { background: rgba(234, 179, 8, 0.1) !important; color: #fbbf24 !important; border: 1px solid rgba(234, 179, 8, 0.2); }
+
+        /* Buttons for House Tab */
+        .btn-main { padding: 12px 24px; border-radius: 12px; font-weight: 800; transition: all 0.2s; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em; }
+        .btn-record { background: #3b82f6; color: white; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
+        .btn-record:hover { background: #2563eb; transform: translateY(-2px); }
+        .btn-overview { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; }
+        .btn-overview:hover { background: rgba(255,255,255,0.1); color: white; }
+        .active-view { background: #fff !important; color: #000 !important; }
+
+        /* RECEIPT MODE */
+        .receipt-mode { background: #ffffff !important; color: #000000 !important; padding: 40px !important; border: 2px solid #000 !important; }
+        .receipt-mode * { color: #000 !important; border-color: #e2e8f0 !important; }
+        .receipt-mode th { border-bottom: 2px solid #000 !important; color: #000 !important; }
+        .receipt-mode tfoot { border-top: 2px solid #000 !important; }
+        
+        .receipt-mode .action-col, 
+        .receipt-mode .status-col, 
+        .receipt-mode .due-col { display: none !important; }
+
+        /* Dynamic Split Hiding */
+        .hide-split .split-col, .hide-split .receipt-split-summary { display: none !important; }
+        
+        /* Show Split Summary only in Receipt Mode */
+        .receipt-split-summary { display: none; }
+        .receipt-mode .receipt-split-summary { display: table-row !important; background: #f1f5f9 !important; font-weight: bold; }
+
+        /* Modal */
+        #edit-modal { backdrop-filter: blur(10px); background: rgba(0,0,0,0.8); z-index: 9999; }
+
+        /* Radar & Cards */
+        .radar-card { border-left: 4px solid #3b82f6; transition: all 0.3s ease; }
+        .in-session { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.05) !important; animation: pulse-red 2s infinite; }
+        @keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        
+        .movie-badge { font-size: 0.65rem; font-weight: 800; padding: 4px 12px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; }
+        .sched-row { display: grid; grid-template-columns: 0.5fr 1fr 1fr 1fr 1fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+
+        /* Smart Saving Styles */
+        .saving-card { background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; }
+        .saving-receipt-mode { background: #fff !important; color: #000 !important; padding: 40px; border: 2px solid #000; }
+        .saving-receipt-mode * { color: #000 !important; border-color: #000 !important; }
+        .saving-receipt-mode .no-print { display: none !important; }
+
+        /* Personal Tab Styles */
+        .log-entry { font-size: 0.65rem; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 2px 0; }
+        
+        /* Font for Event Quote */
+        .font-quote { font-family: 'Dancing Script', cursive; }
+        .input-field { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: white; outline: none; transition: all 0.3s; }
+        .input-field:focus { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+        .border-birthday { border-left: 4px solid #3b82f6; } 
+        .border-wedding { border-left: 4px solid #ec4899; } 
+        .border-holiday { border-left: 4px solid #10b981; } 
+        .border-graduation { border-left: 4px solid #eab308; } 
+        .border-funeral { border-left: 4px solid #64748b; } 
+        .border-other { border-left: 4px solid #8b5cf6; } 
+        .card-anim { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="dark block">
+
+    <div id="focus-overlay">
+        <div id="timer-display-fs" contenteditable="true" onblur="validateTime(this)" class="timer-display text-[15vw] leading-none font-extrabold mb-8 text-white text-center hover:text-blue-400 transition cursor-text">15:00</div>
+        <div class="flex gap-3 mb-12">
+            <button onclick="setTimer(15)" class="px-6 py-2 glass rounded-full text-sm font-bold hover:bg-white/10">15m</button>
+            <button onclick="setTimer(20)" class="px-6 py-2 glass rounded-full text-sm font-bold hover:bg-white/10">20m</button>
+            <button onclick="setTimer(60)" class="px-6 py-2 glass rounded-full text-sm font-bold hover:bg-white/10">1h</button>
+            <button onclick="setTimer(0)" class="px-6 py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full text-sm font-bold hover:bg-red-500/20">Clear</button>
+        </div>
+        <div class="flex gap-4 justify-center">
+            <button onclick="toggleTimer()" id="fs-start-btn" class="bg-blue-600 px-12 py-5 rounded-2xl font-bold text-2xl hover:bg-blue-500 transition shadow-lg shadow-blue-600/20">Start</button>
+            <button onclick="exitFocus()" class="bg-white/10 px-12 py-5 rounded-2xl font-bold text-2xl hover:bg-white/20 transition">Exit</button>
+        </div>
+    </div>
+
+    <div id="login-page" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-6 text-center flex-col">
+        <div class="glass p-10 w-full max-w-md relative">
+            <h1 class="text-3xl font-extrabold mb-2 text-blue-500 tracking-tight" id="login-title">SYSTEM LOG-IN</h1>
+            <p class="text-gray-400 mb-8 text-sm uppercase tracking-widest">Secure Gateway</p>
+            <div id="login-form" class="space-y-4 text-left">
+                <input type="text" id="userLogin" placeholder="Username" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none" onkeydown="if(event.key==='Enter') handleLogin()">
+                <input type="password" id="passLogin" placeholder="Password" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none" onkeydown="if(event.key==='Enter') handleLogin()">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold transition-all">Access Hub</button>
+                <div class="flex justify-between text-xs mt-4 px-2">
+                    <button onclick="toggleAuthView('register')" class="text-gray-400 hover:text-white">Create Account</button>
+                    <button onclick="toggleAuthView('forgot')" class="text-gray-400 hover:text-white">Forgot Password?</button>
+                </div>
+            </div>
+            <div id="register-form" class="hidden space-y-4 text-left">
+                <input type="text" id="regUser" placeholder="New Username" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none">
+                <input type="text" id="regName" placeholder="Full Display Name" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none">
+                <input type="password" id="regPass" placeholder="Password" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none">
+                <input type="password" id="regRecovery" placeholder="Recovery Pin (Numbers)" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none">
+                <button onclick="handleRegister()" class="w-full bg-green-600 hover:bg-green-500 py-4 rounded-xl font-bold transition-all">Register User</button>
+                <button onclick="toggleAuthView('login')" class="w-full bg-white/5 hover:bg-white/10 py-3 rounded-xl font-bold text-xs">Back to Login</button>
+            </div>
+            <div id="forgot-form" class="hidden space-y-4 text-left">
+                <p class="text-xs text-center opacity-60">Enter your username and the recovery PIN you set during registration.</p>
+                <input type="text" id="recUser" placeholder="Username" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none">
+                <input type="password" id="recPin" placeholder="Recovery PIN" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none">
+                <input type="password" id="newPass" placeholder="New Password" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none">
+                <button onclick="handleForgot()" class="w-full bg-orange-600 hover:bg-orange-500 py-4 rounded-xl font-bold transition-all">Reset Password</button>
+                <button onclick="toggleAuthView('login')" class="w-full bg-white/5 hover:bg-white/10 py-3 rounded-xl font-bold text-xs">Back to Login</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="vault-auth-modal" class="hidden fixed inset-0 z-[110] bg-black/90 backdrop-blur-md flex items-center justify-center p-6 text-center">
+        <div class="glass p-8 w-full max-w-sm">
+            <h2 class="text-xl font-bold mb-4 text-blue-500">Vault Locked</h2>
+            <input type="password" id="vaultPIN" placeholder="Enter PIN" class="w-full bg-white/5 p-4 rounded-xl outline-none mb-4 text-center" onkeydown="if(event.key==='Enter') authenticateVault()">
+            <div class="flex gap-2">
+                <button onclick="authenticateVault()" class="flex-1 bg-blue-600 py-3 rounded-xl font-bold">Unlock</button>
+                <button onclick="cancelVault()" class="flex-1 bg-white/10 py-3 rounded-xl font-bold">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="class-sched-modal" class="hidden fixed inset-0 z-[110] bg-black/90 backdrop-blur-md flex items-center justify-center p-6">
+        <div class="glass p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-blue-500 uppercase tracking-widest">Schedule Plotter</h2>
+                <div class="flex gap-2">
+                    <button onclick="deleteAllClasses()" class="text-red-500 font-bold border border-red-500/30 bg-red-500/10 px-4 py-2 rounded hover:bg-red-500 hover:text-white transition">DELETE ALL SUBJECTS</button>
+                    <button onclick="closeSchedModal()" class="text-white font-bold hover:text-gray-300 px-4">CLOSE</button>
+                </div>
+            </div>
+            <div class="bg-white/5 p-6 rounded-2xl border border-white/10 mb-8">
+                <h3 class="font-bold text-lg mb-4 text-white">Add New Subject</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <input type="text" id="newClassCode" placeholder="Code (e.g. BIO143)" class="bg-black/20 p-3 rounded-lg border border-white/10 outline-none text-white">
+                    <input type="text" id="newClassTitle" placeholder="Course Title" class="md:col-span-2 bg-black/20 p-3 rounded-lg border border-white/10 outline-none text-white">
+                </div>
+                <div id="schedule-rows-container" class="space-y-2 mb-4"></div>
+                <button onclick="addSchedRow()" class="text-xs font-bold text-blue-400 hover:text-blue-300 mb-6">+ Add Day/Time Slot</button>
+                <button onclick="saveNewClass()" class="w-full bg-blue-600 py-3 rounded-xl font-bold hover:bg-blue-500 transition shadow-lg">Save to Radar</button>
+            </div>
+            <h3 class="font-bold text-lg mb-4 text-white opacity-60">Active Schedule</h3>
+            <div id="existing-classes-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+    </div>
+
+    <div id="main-dashboard" class="hidden w-full p-6 lg:p-12 mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div>
+                <h2 id="greeting" class="text-4xl font-extrabold text-blue-500 tracking-tight">ONE CENTRAL HUB</h2>
+                <div class="flex items-center gap-3">
+                    <p id="displaySub" class="text-sm opacity-60 font-bold uppercase tracking-widest">Welcome</p>
+                    <span id="user-course-badge" class="hidden px-2 py-0.5 bg-blue-600/20 text-blue-400 text-[10px] font-black uppercase rounded"></span>
+                </div>
+                <p id="user-motivation" class="text-[10px] text-white/40 font-bold mt-1 uppercase tracking-widest hidden"></p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openTab('settings')" class="p-3 glass rounded-xl flex items-center gap-2 hover:bg-blue-600/20 transition">⚙️ Account</button>
+                <button onclick="enterFocus()" class="p-3 glass rounded-xl flex items-center gap-2 hover:bg-blue-600/20 transition">🧠 Deep Focus</button>
+                <button onclick="location.reload()" class="p-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl">Logout</button>
+            </div>
+        </header>
+
+        <div class="w-full mb-8">
+            <div class="glass p-4 flex items-center gap-4 border border-blue-500/30">
+                <span class="opacity-40 text-xl">🔍</span>
+                <input type="text" id="globalSearch" oninput="loadData()" placeholder="WILD Search..." class="bg-transparent outline-none flex-1 font-bold text-lg placeholder-white/20">
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mb-8">
+            <button onclick="openTab('school')" id="btn-school" class="tab-btn active-tab px-10 py-4 rounded-2xl glass font-bold">🎓 ACADEMIC</button>
+            <button onclick="openTab('events')" id="btn-events" class="tab-btn px-10 py-4 rounded-2xl glass font-bold">🎉 Events</button>
+            <button onclick="openTab('house')" id="btn-house" class="tab-btn px-10 py-4 rounded-2xl glass font-bold">🏠 House</button>
+            <button onclick="openTab('movies')" id="btn-movies" class="tab-btn px-10 py-4 rounded-2xl glass font-bold">🎬 Movies</button>
+            <button onclick="openTab('personal')" id="btn-personal" class="tab-btn px-10 py-4 rounded-2xl glass font-bold">📦 Personal</button>
+            <button onclick="openTab('vault')" id="btn-vault" class="tab-btn px-10 py-4 rounded-2xl glass font-bold">🔐 Vault</button>
+            <button onclick="openTab('admin')" id="btn-admin" class="tab-btn px-10 py-4 rounded-2xl bg-red-600/20 text-red-500 font-black border border-red-500/50 hidden">ADMIN</button>
+        </div>
+
+        <div id="school-metrics" class="mb-8 hidden">
+             <div class="flex justify-end mb-6">
+                <button onclick="toggleRadar()" id="radar-toggle-btn" class="glass px-6 py-3 font-bold text-sm hover:bg-white/5 transition whitespace-nowrap">👁️ Hide Radar</button>
+            </div>
+            <div id="radar-section">
+                <div class="glass p-6 flex flex-col md:flex-row items-center gap-8 border-l-4 border-blue-500 mb-6">
+                    <div class="flex-1 w-full">
+                        <div class="flex justify-between mb-2 items-end">
+                            <p class="text-[10px] uppercase font-black text-blue-500">Academic Load Progress</p>
+                            <span id="progress-text" class="text-2xl font-black">0%</span>
+                        </div>
+                        <div class="w-full bg-white/5 h-4 rounded-full overflow-hidden border border-white/10">
+                            <div id="progress-bar" class="h-full bg-blue-600 transition-all duration-1000" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="text-center px-6 border-x border-white/5">
+                            <p class="text-[9px] opacity-40 uppercase text-red-400 font-bold">Current Class</p>
+                            <p id="current-class-radar" class="text-xs font-black text-white">Standby</p>
+                        </div>
+                        <div class="text-center px-6 border-r border-white/5"><p class="text-[9px] opacity-40 uppercase">Pending</p><p id="pending-count" class="text-2xl font-black">0</p></div>
+                        <div class="text-center px-6"><p class="text-[9px] opacity-40 uppercase">Completed</p><p id="completed-count" class="text-2xl font-black text-green-500">0</p></div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+                    <p class="text-sm font-black uppercase tracking-widest text-blue-400">📡 Live Class Radar (Today)</p>
+                    <button onclick="openSchedModal()" class="text-xs bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-500 transition">📅 Manage Schedule</button>
+                </div>
+                <div id="radar-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12"></div>
+            </div>
+            <div class="border-t border-white/10 pt-4 mb-4 mt-4 flex justify-between items-center">
+                <p class="text-sm font-black uppercase tracking-widest text-green-400">📝 Assignments & Tasks</p>
+                <button onclick="deleteAllTasks()" class="text-[10px] font-bold text-red-500 bg-red-500/10 px-3 py-1 rounded hover:bg-red-500/20 border border-red-500/20 transition">DELETE ALL TASKS</button>
+            </div>
+        </div>
+
+        <div id="events-area" class="hidden space-y-6">
+            <div class="flex justify-between items-center pb-6 border-b border-white/10">
+                <div>
+                    <h1 class="text-2xl font-extrabold text-blue-500 tracking-tight">EVENT MANAGER</h1>
+                    <p class="font-quote text-xl text-gray-400 mt-1">"To be loved is to be remembered."</p>
+                </div>
+                <div class="flex gap-4">
+                    <button onclick="openHolidayList()" class="glass px-6 py-3 font-extrabold uppercase tracking-widest text-xs transition hover:bg-emerald-600 hover:text-white text-emerald-400 border border-emerald-500/30">PH HOLIDAYS</button>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="glass px-6 py-3 text-right border-t-2 border-blue-500 flex-1">
+                    <p class="text-[10px] font-black uppercase opacity-50">Visible Events</p>
+                    <p id="event-total-count" class="text-2xl font-black text-white">0</p>
+                </div>
+                <div class="glass px-6 py-3 text-right border-t-2 border-yellow-500 flex-1">
+                    <p class="text-[10px] font-black uppercase opacity-50">Coming Up</p>
+                    <p id="event-next-up" class="text-xl font-bold text-yellow-400">None</p>
+                </div>
+            </div>
+            <div id="event-input-area" class="glass p-6 space-y-4 w-full transition-all duration-300">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <select id="eventTypeInput" class="input-field p-3 rounded-xl font-bold cursor-pointer bg-slate-900">
+                        <option value="Birthday">🎂 Birthday</option><option value="Wedding">💍 Wedding</option><option value="Holiday">🎄 My Holiday</option><option value="Graduation">🎓 Graduation</option><option value="Funeral">🕊️ Funeral</option><option value="Other">📅 Other</option>
+                    </select>
+                    <input type="date" id="eventDateInput" class="input-field p-3 rounded-xl font-bold">
+                    <input type="text" id="eventNameInput" placeholder="Input Name" class="input-field p-3 rounded-xl md:col-span-2 font-bold placeholder-gray-600">
+                </div>
+                <textarea id="eventNoteInput" placeholder="Notes (Gift ideas, memories, details...)" class="input-field w-full p-3 rounded-xl h-20 text-sm font-medium placeholder-gray-600"></textarea>
+                <button id="eventActionBtn" onclick="handleAddEvent()" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-extrabold uppercase tracking-widest transition shadow-lg shadow-blue-600/20">Add Event</button>
+            </div>
+            <div id="event-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20"></div>
+        </div>
+
+        <div id="house-area" class="hidden space-y-6">
+            <div class="flex gap-4 border-b border-white/10 pb-4">
+                <button onclick="switchHouseTab('bill-manager')" id="btn-sub-bill" class="text-lg font-bold text-white border-b-2 border-blue-500 pb-1">Bill Manager</button>
+                <button onclick="switchHouseTab('smart-saving')" id="btn-sub-saving" class="text-lg font-bold text-gray-500 hover:text-white transition pb-1">Smart Saving</button>
+            </div>
+
+            <div id="bill-manager-panel">
+                <div class="flex justify-between items-center pb-4 border-b border-white/10">
+                    <h3 class="text-xl font-bold text-white uppercase tracking-widest">Bill Manager</h3>
+                    <div class="flex gap-3 bg-white/5 p-2 rounded-2xl border border-white/10">
+                        <button onclick="switchHouseView('record')" id="btn-record-view" class="btn-main active-view">Record</button>
+                        <button onclick="switchHouseView('overview')" id="btn-overview-view" class="btn-main btn-overview">Overview</button>
+                    </div>
+                </div>
+
+                <div id="view-record" class="space-y-6 animate-in fade-in">
+                    <div class="flex items-center gap-3 bg-white/5 p-3 rounded-xl w-fit">
+                        <input type="checkbox" id="splitToggle" onchange="renderBills()" class="w-5 h-5 accent-blue-600 cursor-pointer">
+                        <label for="splitToggle" class="text-sm font-bold cursor-pointer">Split Bill (50/50)</label>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="glass p-5 border-l-4 border-blue-500">
+                            <p class="text-[10px] uppercase font-black opacity-50 mb-1">Current Total</p>
+                            <p class="text-3xl font-black" id="stat-grand">₱0</p>
+                        </div>
+                        <div id="card-split-display" class="glass p-5 border-l-4 border-green-500 hidden">
+                            <p class="text-[10px] uppercase font-black opacity-50 mb-1">My 50% Share</p>
+                            <p class="text-3xl font-black" id="stat-per-person">₱0</p>
+                        </div>
+                        <div class="glass p-5 border-l-4 border-orange-500">
+                            <p class="text-[10px] uppercase font-black opacity-50 mb-1">Charges</p>
+                            <p class="text-3xl font-black" id="stat-charges">₱0</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap justify-between items-center gap-4">
+                        <div class="flex gap-2">
+                            <button onclick="addBillRow()" class="px-4 py-2 rounded-lg bg-blue-500/10 text-blue-400 font-bold text-xs hover:bg-blue-500/20 border border-blue-500/20 transition">+ Add Line</button>
+                            <button onclick="resetDefaults()" class="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 font-bold text-xs hover:bg-red-500/20 border border-red-500/20 transition">Reset Defaults</button>
+                        </div>
+                        <div class="flex gap-2">
+                             <button onclick="confirmAndScreenshot()" class="px-6 py-2 rounded-lg bg-gray-700 text-white font-bold text-xs hover:bg-gray-600 shadow-lg transition">📸 Receipt</button>
+                            <button onclick="saveToHistory()" class="btn-main btn-record">💾 Record Month</button>
+                        </div>
+                    </div>
+
+                    <div id="bill-receipt-wrap" class="rounded-2xl bg-[#020617] overflow-hidden border border-white/5">
+                        <table class="house-table">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Price</th>
+                                    <th class="split-col">50% Split</th>
+                                    <th>Charge</th>
+                                    <th>Total</th>
+                                    <th class="status-col">Status</th>
+                                    <th class="due-col">Due Date</th>
+                                    <th class="action-col">Act</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bill-body"></tbody>
+                            <tfoot class="font-bold border-t border-white/10">
+                                <tr>
+                                    <td class="text-blue-500 font-black italic text-xs uppercase pl-5">GRAND TOTAL</td>
+                                    <td colspan="3"></td>
+                                    <td id="total-grand-table" class="text-xl text-white underline decoration-blue-500">₱0</td>
+                                    <td colspan="3"></td>
+                                </tr>
+                                <tr class="receipt-split-summary">
+                                    <td class="text-green-600 font-black italic text-xs uppercase pl-5">YOUR 50% SHARE</td>
+                                    <td colspan="3"></td>
+                                    <td id="receipt-split-total" class="text-xl text-green-700">₱0</td>
+                                    <td colspan="3"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="view-overview" class="hidden space-y-8 animate-in fade-in">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="glass p-8 flex items-center justify-between border-t-4 border-blue-600">
+                            <div><h3 class="text-sm font-bold opacity-50 uppercase tracking-widest mb-1">Lifetime Billings Paid</h3><p class="text-4xl font-black text-white" id="ov-lifetime-total">₱0</p></div><div class="text-4xl opacity-20">💰</div>
+                        </div>
+                        <div class="glass p-8 flex items-center justify-between border-t-4 border-purple-600">
+                            <div><h3 class="text-sm font-bold opacity-50 uppercase tracking-widest mb-1">Trend Insight</h3><div id="ov-insight-text" class="text-2xl font-black text-white">No Data Yet</div><p class="text-xs opacity-40 mt-1">Vs. Previous Month</p></div><div class="text-4xl opacity-20">📊</div>
+                        </div>
+                    </div>
+                    <h2 class="text-xl font-bold text-blue-400 uppercase tracking-widest border-b border-white/10 pb-4">History Records</h2>
+                    <div id="overview-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                    <div id="empty-history-msg" class="hidden text-center opacity-30 py-10 font-bold uppercase tracking-widest">No records found.</div>
+                </div>
+            </div>
+
+            <div id="smart-saving-panel" class="hidden">
+                 <div id="saving-content-area" class="space-y-6">
+                    <div class="flex justify-between items-center pb-4 border-b border-white/10">
+                        <h3 class="text-xl font-bold text-yellow-500 uppercase tracking-widest">Smart Saving Tracker</h3>
+                         <button id="btn-shot-save" onclick="screenshotSavings()" class="px-6 py-2 rounded-lg bg-yellow-600 text-white font-bold text-xs hover:bg-yellow-500 shadow-lg transition no-print">📸 Save Allocations</button>
+                    </div>
+                    <div class="glass p-6">
+                         <label class="text-xs font-bold uppercase opacity-60">Total Monthly Income / Budget</label>
+                         <div class="flex items-center gap-2 mt-2"><span class="text-2xl font-bold">₱</span><input type="number" id="savingInput" oninput="calculateSavings()" placeholder="0.00" class="bg-transparent text-4xl font-black outline-none w-full text-white placeholder-gray-700"></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                         <div class="saving-card p-6 border-l-4 border-red-500">
+                            <div class="flex justify-between items-center mb-2"><h4 class="font-bold text-red-400 uppercase tracking-widest text-sm">Expenses</h4><input type="number" id="pctExpenses" oninput="calculateSavings()" value="50" class="w-12 bg-transparent text-right font-bold text-xs outline-none border-b border-white/20">%</div>
+                            <p class="text-3xl font-black" id="valExpenses">₱0</p><p class="text-[10px] opacity-40 mt-1">Needs & Commitments</p>
+                         </div>
+                         <div class="saving-card p-6 border-l-4 border-blue-500">
+                             <div class="flex justify-between items-center mb-2"><h4 class="font-bold text-blue-400 uppercase tracking-widest text-sm">Emergency Fund</h4><input type="number" id="pctEmergency" oninput="calculateSavings()" value="30" class="w-12 bg-transparent text-right font-bold text-xs outline-none border-b border-white/20">%</div>
+                            <p class="text-3xl font-black" id="valEmergency">₱0</p><p class="text-[10px] opacity-40 mt-1">Safety Net</p>
+                         </div>
+                         <div class="saving-card p-6 border-l-4 border-yellow-500">
+                             <div class="flex justify-between items-center mb-2"><h4 class="font-bold text-yellow-400 uppercase tracking-widest text-sm">Savings</h4><input type="number" id="pctSavings" oninput="calculateSavings()" value="20" class="w-12 bg-transparent text-right font-bold text-xs outline-none border-b border-white/20">%</div>
+                            <p class="text-3xl font-black" id="valSavings">₱0</p><p class="text-[10px] opacity-40 mt-1">Future Goals</p>
+                         </div>
+                    </div>
+                 </div>
+            </div>
+        </div>
+
+        <div id="content-area" class="space-y-8">
+            <div id="movie-controls" class="hidden mb-6 flex justify-end">
+                 <button id="btn-show-watched" onclick="toggleWatched()" class="px-6 py-2 rounded-lg bg-white/5 text-gray-400 font-bold text-xs hover:bg-white/10 border border-white/10 transition">👁️ Show Watched</button>
+            </div>
+            <div id="input-container" class="glass p-8">
+                <div id="standard-inputs" class="flex flex-wrap items-center gap-6">
+                    <select id="schoolTaskType" class="hidden bg-black/5 p-3 rounded-xl border border-white/10 outline-none">
+                        <option value="HW">Homework</option><option value="QUIZ">Quiz</option><option value="EXAM">Major Exam</option><option value="PROJ">Project</option>
+                    </select>
+                    <input type="text" id="mainInput" placeholder="Entry name..." class="flex-1 bg-transparent border-b-2 border-white/10 p-3 outline-none focus:border-blue-500 text-xl font-medium" onkeydown="if(event.key==='Enter') saveItem()">
+                    <div id="personal-inputs" class="hidden flex flex-1 flex-wrap gap-4"><input type="text" id="personalLocation" placeholder="Stored At (Drawer)" class="flex-1 min-w-[200px] bg-white/5 p-3 rounded-xl border border-white/10 outline-none text-white font-medium" onkeydown="if(event.key==='Enter') saveItem()"></div>
+                    <div id="vault-inputs" class="hidden flex flex-1 flex-wrap gap-4"><input type="text" id="vaultUser" placeholder="User" class="flex-1 min-w-[200px] bg-white/5 p-3 rounded-xl border border-white/10 outline-none" onkeydown="if(event.key==='Enter') saveItem()"><input type="password" id="vaultPass" placeholder="Pass" class="flex-1 min-w-[200px] bg-white/5 p-3 rounded-xl border border-white/10 outline-none" onkeydown="if(event.key==='Enter') saveItem()"></div>
+                    <div id="date-wrapper" class="hidden flex items-center gap-3"><label class="text-[9px] uppercase font-bold opacity-40">DATE:</label><input type="date" id="dateInput" class="bg-white/10 p-3 rounded-xl border border-white/10 outline-none text-white"></div>
+                    <button onclick="saveItem()" id="addBtn" class="bg-blue-600 px-12 py-4 rounded-2xl font-bold text-lg hover:bg-blue-500 transition shadow-lg shadow-blue600/20">Confirm</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8" id="listDisplay"></div>
+            <div id="settings-area" class="hidden space-y-6">
+                <div class="glass p-8 max-w-2xl mx-auto">
+                    <h3 class="text-2xl font-bold mb-6 text-blue-500 uppercase tracking-widest">ACCOUNT SETTINGS</h3>
+                    <div class="space-y-4 text-left">
+                         <label class="text-[10px] uppercase font-bold opacity-50 ml-1">Username (Login ID)</label><input type="text" id="setUser" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none focus:border-blue-500 transition">
+                        <label class="text-[10px] uppercase font-bold opacity-50 ml-1">Display Name</label><input type="text" id="setName" placeholder="Display Name" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none focus:border-blue-500 transition">
+                        <div class="grid grid-cols-2 gap-4"><div><label class="text-[10px] uppercase font-bold opacity-50 ml-1">Motivation Name</label><input type="text" id="setMotivationName" placeholder="e.g. Future R. Psych" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none focus:border-blue-500 transition"></div><div><label class="text-[10px] uppercase font-bold opacity-50 ml-1">Course / Program</label><input type="text" id="setCourse" placeholder="e.g. BS Psychology" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none focus:border-blue-500 transition"></div></div>
+                        <label class="text-[10px] uppercase font-bold opacity-50 ml-1">Password</label><input type="password" id="setPass" placeholder="Enter New Password to Change" class="w-full bg-white/5 p-4 rounded-xl border border-white/10 outline-none focus:border-blue-500 transition">
+                        <button onclick="confirmProtocolChange()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold transition-all shadow-lg mt-4">Apply Account Update</button>
+                    </div>
+                </div>
+            </div>
+            <div id="admin-area" class="hidden space-y-6">
+                <div class="glass p-8">
+                    <h3 class="text-2xl font-black mb-6 text-red-500 uppercase tracking-widest">ADMINISTRATOR PANEL</h3>
+                    <p class="text-sm opacity-60 mb-6">Manage registered users and recover passwords.</p>
+                    <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="border-b border-white/10 text-[10px] uppercase tracking-widest text-white/50"><th class="p-3">Username</th><th class="p-3">Display Name</th><th class="p-3">Recovery PIN</th><th class="p-3">Password Control</th><th class="p-3">Actions</th></tr></thead><tbody id="admin-user-list"></tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="event-modal-overlay" class="modal-overlay hidden fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-[#0f172a] border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative">
+            <div class="p-6 border-b border-white/10 bg-[#1e293b]"><h2 id="modalName" class="text-2xl font-extrabold text-white">Name</h2><p id="modalType" class="text-sm font-bold text-blue-400 uppercase tracking-widest">Type</p><button onclick="closeEventModal()" class="absolute top-6 right-6 text-gray-400 hover:text-white font-bold text-xl">✕</button></div>
+            <div class="p-8 space-y-4">
+                <div class="flex justify-between items-center glass p-4"><span class="text-xs font-bold uppercase opacity-50">Date</span><span id="modalDate" class="font-bold text-lg">Jan 1</span></div>
+                <div class="glass p-4 border-l-4 border-purple-500"><p class="text-[10px] font-black uppercase opacity-50 mb-1">Status Calculation</p><p id="modalCalculated" class="text-md font-bold text-purple-300">...</p></div>
+                <div><p class="text-[10px] font-black uppercase opacity-50 mb-2">Notes</p><div id="modalNotes" class="bg-white/5 p-4 rounded-xl text-sm leading-relaxed text-gray-300 min-h-[80px]"></div></div>
+            </div>
+        </div>
+    </div>
+    <div id="holiday-list-overlay" class="modal-overlay hidden fixed inset-0 flex items-center justify-center p-4">
+        <div class="glass w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative flex flex-col max-h-[80vh]">
+            <div class="p-6 border-b border-white/10 bg-emerald-900/40"><h2 class="text-xl font-extrabold text-white tracking-tight">PH HOLIDAY LIST</h2><p class="text-[10px] uppercase font-bold text-emerald-400 tracking-widest">Yearly Reference</p><button onclick="closeHolidayList()" class="absolute top-5 right-6 text-emerald-200 hover:text-white font-bold text-xl">✕</button></div>
+            <div id="holiday-table-container" class="p-2 overflow-y-auto"></div>
+        </div>
+    </div>
+    <div id="edit-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#0f172a] border border-white/10 w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl flex flex-col">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-[#1e293b]"><h3 class="text-xl font-bold text-white uppercase tracking-widest">Editing: <span id="modal-title" class="text-blue-400"></span></h3><button onclick="closeModal()" class="text-red-400 font-bold hover:text-white">CLOSE ✕</button></div>
+            <div class="p-6 overflow-x-auto"><table class="house-table"><thead><tr><th>Item</th><th>Price</th><th>Charge</th><th>Total</th><th>Status</th><th>Action</th></tr></thead><tbody id="modal-body"></tbody></table><button onclick="addModalRow()" class="mt-4 text-xs font-bold text-blue-400 hover:text-white">+ Add Item</button></div>
+            <div class="p-6 border-t border-white/10 bg-[#1e293b] flex justify-end gap-3"><button onclick="closeModal()" class="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 font-bold text-sm">Cancel</button><button onclick="saveModalChanges()" class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm shadow-lg">Save Changes</button></div>
+        </div>
+    </div>
+
+    <script>
+        const savingQuotes = ["Do not save what is left after spending, but spend what is left after saving.", "A penny saved is a penny earned.", "Beware of little expenses; a small leak will sink a great ship.", "The art is not in making money, but in keeping it.", "He who buys what he does not need, steals from himself.", "Rich people stay rich by living like they're broke."];
+        const phHolidays = [{ name: "New Year's Day", month: 0, day: 1 }, { name: "Christmas Day", month: 11, day: 25 }];
+        let registeredUsers = JSON.parse(localStorage.getItem('OCH_Users')) || [];
+        const adminUser = { user: "HAZARD", pass: "2026", name: "JAMES BYRON PALPARA", recovery: "0000", motivation: "ADMINISTRATOR", course: "SYSTEM CONTROL" };
+        let currentUser = null; let currentTab = 'school', timeLeft = 900, isRunning = false, vaultUnlocked = false, timerInterval, radarInterval; let showWatchedMovies = false; let eventEditIndex = -1;
+        function getKey(key) { return `${currentUser}_${key}`; }
+
+        // --- AUTH & SETUP ---
+        function toggleAuthView(view) {
+            document.getElementById('login-form').classList.add('hidden'); document.getElementById('register-form').classList.add('hidden'); document.getElementById('forgot-form').classList.add('hidden');
+            if(view === 'login') { document.getElementById('login-form').classList.remove('hidden'); document.getElementById('login-title').innerText = "SYSTEM LOG-IN"; } else if(view === 'register') { document.getElementById('register-form').classList.remove('hidden'); document.getElementById('login-title').innerText = "CREATE ACCOUNT"; } else if(view === 'forgot') { document.getElementById('forgot-form').classList.remove('hidden'); document.getElementById('login-title').innerText = "RECOVER ACCESS"; }
+        }
+        function handleRegister() { const u = document.getElementById('regUser').value.trim(); const n = document.getElementById('regName').value.trim(); const p = document.getElementById('regPass').value.trim(); const r = document.getElementById('regRecovery').value.trim(); if(!u || !n || !p || !r) { alert("All fields required"); return; } if(u === "HAZARD" || registeredUsers.find(user => user.user === u)) { alert("Username unavailable"); return; } registeredUsers.push({ user: u, name: n, pass: p, recovery: r, motivation: "", course: "", blocked: false }); localStorage.setItem('OCH_Users', JSON.stringify(registeredUsers)); alert("Account Created! Please Log In."); toggleAuthView('login'); }
+        function handleForgot() { const u = document.getElementById('recUser').value.trim(); const r = document.getElementById('recPin').value.trim(); const np = document.getElementById('newPass').value.trim(); const userIdx = registeredUsers.findIndex(usr => usr.user === u && usr.recovery === r); if(userIdx > -1) { registeredUsers[userIdx].pass = np; localStorage.setItem('OCH_Users', JSON.stringify(registeredUsers)); alert("Password Reset Successful."); toggleAuthView('login'); } else { alert("Invalid Credentials or Recovery PIN."); } }
+        function handleLogin() { const u = document.getElementById('userLogin').value.trim(); const p = document.getElementById('passLogin').value.trim(); if(!u || !p) { alert("Credentials Mandatory"); return; } let foundUser = null; if(u === adminUser.user && p === adminUser.pass) foundUser = adminUser; else foundUser = registeredUsers.find(usr => usr.user === u && usr.pass === p); if(foundUser) { if(foundUser.blocked) { alert("ACCESS PROHIBITED: Your account has been blocked by the Administrator."); return; } currentUser = foundUser.user; document.getElementById('displaySub').innerText = `Welcome ${foundUser.name}`; if(foundUser.motivation) { document.getElementById('user-motivation').innerText = foundUser.motivation; document.getElementById('user-motivation').classList.remove('hidden'); } else { document.getElementById('user-motivation').classList.add('hidden'); } if(foundUser.course) { document.getElementById('user-course-badge').innerText = foundUser.course; document.getElementById('user-course-badge').classList.remove('hidden'); } else { document.getElementById('user-course-badge').classList.add('hidden'); } if(currentUser === 'HAZARD') document.getElementById('btn-admin').classList.remove('hidden'); else document.getElementById('btn-admin').classList.add('hidden'); document.getElementById('login-page').classList.add('hidden'); document.getElementById('main-dashboard').classList.remove('hidden'); initUserData(); openTab('school'); } else { alert("Access Denied"); } }
+
+        let currentBills = []; let billHistory = []; let classSchedule = []; let userEvents = [];
+        function initUserData() { if(!localStorage.getItem(getKey('currentBills'))) localStorage.setItem(getKey('currentBills'), JSON.stringify([{ name: "VECO", price: 0, charge: 0, status: "PENDING", due: "15th" }, { name: "PLDT", price: 1357, charge: 0, status: "PENDING", due: "28th" }, { name: "HELPMATE", price: 0, charge: 0, status: "PENDING", due: "15th" }])); if(!localStorage.getItem(getKey('classSchedule'))) { if(currentUser === 'HAZARD') localStorage.setItem(getKey('classSchedule'), JSON.stringify([{ id: 1, code: "PSYCH264", title: "Experimental Psychology", sessions: [{day:"T", start:"12:00", end:"16:30", mode:"F2F", room:"RTL224"}, {day:"F", start:"12:00", end:"16:30", mode:"F2F", room:"RTL224"}] }])); else localStorage.setItem(getKey('classSchedule'), "[]"); } if(!localStorage.getItem(getKey('userEvents'))) localStorage.setItem(getKey('userEvents'), "[]"); currentBills = JSON.parse(localStorage.getItem(getKey('currentBills'))); billHistory = JSON.parse(localStorage.getItem(getKey('billHistory')) || "[]"); classSchedule = JSON.parse(localStorage.getItem(getKey('classSchedule'))); userEvents = JSON.parse(localStorage.getItem(getKey('userEvents'))); }
+
+        // --- CORE FUNCTIONS ---
+        function openTab(tabName) {
+            if (tabName === 'vault' && !vaultUnlocked) { document.getElementById('vault-auth-modal').classList.remove('hidden'); return; }
+            if (currentTab === 'vault' && tabName !== 'vault') vaultUnlocked = false;
+            if (tabName === 'admin' && currentUser !== 'HAZARD') { alert("Access Denied"); return; }
+            currentTab = tabName;
+            document.getElementById('globalSearch').value = "";
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active-tab'));
+            if(document.getElementById(`btn-${tabName}`)) document.getElementById(`btn-${tabName}`).classList.add('active-tab');
+            ['house-area', 'settings-area', 'admin-area', 'school-metrics', 'events-area'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('movie-controls').classList.add('hidden');
+            document.getElementById('input-container').classList.add('hidden');
+            document.getElementById('listDisplay').classList.add('hidden');
+            if(tabName === 'school') { document.getElementById('school-metrics').classList.remove('hidden'); document.getElementById('input-container').classList.remove('hidden'); document.getElementById('listDisplay').classList.remove('hidden'); }
+            else if(tabName === 'house') { document.getElementById('house-area').classList.remove('hidden'); switchHouseTab('bill-manager'); }
+            else if(tabName === 'events') { document.getElementById('events-area').classList.remove('hidden'); renderEventList(); }
+            else if(tabName === 'movies') { document.getElementById('input-container').classList.remove('hidden'); document.getElementById('listDisplay').classList.remove('hidden'); document.getElementById('movie-controls').classList.remove('hidden'); }
+            else if(tabName === 'personal' || tabName === 'vault') { document.getElementById('input-container').classList.remove('hidden'); document.getElementById('listDisplay').classList.remove('hidden'); }
+            else if(tabName === 'settings') { document.getElementById('settings-area').classList.remove('hidden'); loadSettings(); }
+            else if(tabName === 'admin') { document.getElementById('admin-area').classList.remove('hidden'); renderAdminPanel(); }
+            document.getElementById('date-wrapper').classList.toggle('hidden', tabName !== 'movies' && tabName !== 'school');
+            document.getElementById('schoolTaskType').classList.toggle('hidden', tabName !== 'school');
+            document.getElementById('vault-inputs').classList.toggle('hidden', tabName !== 'vault');
+            document.getElementById('personal-inputs').classList.toggle('hidden', tabName !== 'personal');
+            let ph = "Title..."; if(tabName === 'vault') ph = "App / Platform"; else if(tabName === 'school') ph = "Task / Assignment"; else if(tabName === 'personal') ph = "Item Name"; document.getElementById('mainInput').placeholder = ph;
+            if(tabName === 'school') { if(!radarInterval) radarInterval = setInterval(renderRadar, 1000); setTimeout(renderRadar, 100); } else { if(radarInterval) { clearInterval(radarInterval); radarInterval = null; } }
+            if(tabName !== 'events' && tabName !== 'settings' && tabName !== 'admin' && tabName !== 'house') loadData();
+        }
+
+        // --- HOUSE FUNCTIONS (CORRECTED) ---
+        function switchHouseTab(subTab) {
+            const billPanel = document.getElementById('bill-manager-panel'); const savePanel = document.getElementById('smart-saving-panel'); const btnBill = document.getElementById('btn-sub-bill'); const btnSave = document.getElementById('btn-sub-saving');
+            if(subTab === 'bill-manager') { billPanel.classList.remove('hidden'); savePanel.classList.add('hidden'); btnBill.classList.remove('text-gray-500', 'border-transparent'); btnBill.classList.add('text-white', 'border-blue-500'); btnSave.classList.add('text-gray-500'); btnSave.classList.remove('text-white', 'border-blue-500'); switchHouseView('record'); }
+            else { billPanel.classList.add('hidden'); savePanel.classList.remove('hidden'); btnSave.classList.remove('text-gray-500'); btnSave.classList.add('text-white', 'border-blue-500'); btnBill.classList.add('text-gray-500', 'border-transparent'); btnBill.classList.remove('text-white', 'border-blue-500'); }
+        }
+        function switchHouseView(viewName) {
+            const r = document.getElementById('view-record'); const o = document.getElementById('view-overview'); const bR = document.getElementById('btn-record-view'); const bO = document.getElementById('btn-overview-view');
+            if (viewName === 'record') { r.classList.remove('hidden'); o.classList.add('hidden'); bR.classList.add('active-view'); bR.classList.remove('btn-overview'); bO.classList.remove('active-view'); bO.classList.add('btn-overview'); renderBills(); }
+            else { r.classList.add('hidden'); o.classList.remove('hidden'); bR.classList.remove('active-view'); bR.classList.add('btn-overview'); bO.classList.add('active-view'); bO.classList.remove('btn-overview'); renderOverview(); }
+        }
+        function renderBills() {
+            const body = document.getElementById('bill-body'); body.innerHTML = ""; let pp = 0, gt = 0, ch = 0; const isSplitOn = document.getElementById('splitToggle').checked; const splitCard = document.getElementById('card-split-display'); const receiptWrap = document.getElementById('bill-receipt-wrap');
+            if(isSplitOn) { splitCard.classList.remove('hidden'); receiptWrap.classList.remove('hide-split'); } else { splitCard.classList.add('hidden'); receiptWrap.classList.add('hide-split'); }
+            currentBills.forEach((bill, idx) => { const total = bill.price + bill.charge; const split = Math.floor(total / 2); pp += split; gt += total; ch += bill.charge;
+                body.innerHTML += `<tr><td contenteditable="true" onblur="updateBill(${idx}, 'name', this.innerText)">${bill.name}</td><td contenteditable="true" onblur="updateBill(${idx}, 'price', this.innerText)">₱${bill.price.toLocaleString()}</td><td class="opacity-40 italic split-col">₱${split.toLocaleString()}</td><td contenteditable="true" onblur="updateBill(${idx}, 'charge', this.innerText)">₱${bill.charge.toLocaleString()}</td><td class="font-bold text-white">₱${total.toLocaleString()}</td><td class="status-col"><select onchange="updateBill(${idx}, 'status', this.value)" class="cursor-pointer px-3 py-1 rounded-full text-[10px] font-black outline-none ${bill.status === 'PAID' ? 'status-paid' : 'status-pending'}"><option value="PENDING" ${bill.status !== 'PAID' ? 'selected' : ''}>PENDING</option><option value="PAID" ${bill.status === 'PAID' ? 'selected' : ''}>PAID</option></select></td><td class="due-col" contenteditable="true" onblur="updateBill(${idx}, 'due', this.innerText)">${bill.due}</td><td class="action-col"><button onclick="removeBillRow(${idx})" class="text-red-500 opacity-20 hover:opacity-100">✕</button></td></tr>`; });
+            document.getElementById('total-grand-table').innerText = `₱${gt.toLocaleString()}`; document.getElementById('receipt-split-total').innerText = `₱${pp.toLocaleString()}`; document.getElementById('stat-grand').innerText = `₱${gt.toLocaleString()}`; document.getElementById('stat-per-person').innerText = `₱${pp.toLocaleString()}`; document.getElementById('stat-charges').innerText = `₱${ch.toLocaleString()}`;
+        }
+        function updateBill(idx, field, val) { if (field === 'price' || field === 'charge') { let clean = val.replace(/[^\d]/g, ''); currentBills[idx][field] = parseInt(clean) || 0; } else { currentBills[idx][field] = val; } localStorage.setItem(getKey('currentBills'), JSON.stringify(currentBills)); renderBills(); }
+        function addBillRow() { currentBills.push({name:"New", price:0, charge:0, status:"PENDING", due:""}); renderBills(); }
+        function removeBillRow(idx) { if(confirm("Are you sure you want to remove this item?")) { currentBills.splice(idx,1); renderBills(); } }
+        function resetDefaults() { if(confirm("WARNING: This will reset your current list to default values. Continue?")) { localStorage.removeItem(getKey('currentBills')); initUserData(); renderBills(); } }
+        function saveToHistory() { if(!confirm("Save this month's data to history?")) return; let total = currentBills.reduce((acc, b) => acc + (b.price + b.charge), 0); let name = prompt("Enter a name for this record (e.g., 'January 2026'):"); if(name) { billHistory.push({ id: Date.now(), name: name, total: total, dateSaved: new Date().toLocaleDateString(), items: JSON.parse(JSON.stringify(currentBills)) }); localStorage.setItem(getKey('billHistory'), JSON.stringify(billHistory)); alert("Successfully saved to Overview!"); switchHouseView('overview'); } }
+        function confirmAndScreenshot() { if(!confirm("Generate receipt image?")) return; const el = document.getElementById('bill-receipt-wrap'); const d = new Date(); const dateStr = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); const dayStr = d.toLocaleDateString('en-US', { weekday: 'long' }); const finalDateStr = `${dateStr} | ${dayStr}`; const headerEl = document.createElement('div'); headerEl.className = 'receipt-header text-center mb-6 pt-4'; headerEl.innerHTML = `<h2 class="text-2xl font-black uppercase tracking-widest text-black">OFFICIAL BILL RECEIPT</h2><p class="text-sm text-gray-600 font-bold uppercase">Generated: ${finalDateStr}</p><div class="w-full h-1 bg-black mt-2"></div>`; el.prepend(headerEl); el.classList.add('receipt-mode'); html2canvas(el, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => { const link = document.createElement('a'); link.download = `Bill_Receipt_${Date.now()}.png`; link.href = canvas.toDataURL(); link.click(); el.classList.remove('receipt-mode'); headerEl.remove(); }); }
+        function renderOverview() { const grid = document.getElementById('overview-grid'); grid.innerHTML = ""; let lifetimeTotal = 0; if(billHistory.length === 0) { document.getElementById('empty-history-msg').classList.remove('hidden'); return; } document.getElementById('empty-history-msg').classList.add('hidden'); billHistory.forEach(r => lifetimeTotal += r.total); document.getElementById('ov-lifetime-total').innerText = `₱${lifetimeTotal.toLocaleString()}`; const insightEl = document.getElementById('ov-insight-text'); if (billHistory.length >= 2) { const latest = billHistory[billHistory.length - 1]; const prev = billHistory[billHistory.length - 2]; const diff = latest.total - prev.total; if (diff > 0) { insightEl.innerHTML = `<span class="text-orange-400">Paid Higher</span> <span class="text-sm">by ₱${diff.toLocaleString()}</span>`; } else if (diff < 0) { insightEl.innerHTML = `<span class="text-green-400">Saved</span> <span class="text-sm">₱${Math.abs(diff).toLocaleString()}</span>`; } else { insightEl.innerHTML = `<span class="text-gray-400">Same Amount</span>`; } } else { insightEl.innerHTML = `<span class="text-gray-500 text-sm">Need 2 records for insight</span>`; } billHistory.slice().reverse().forEach((rec) => { const card = document.createElement('div'); card.className = "glass p-6 border-t-4 border-blue-500 hover:bg-white/5 transition relative"; card.innerHTML = `<div class="flex justify-between items-start mb-4"><h3 class="text-xl font-bold text-white">${rec.name}</h3><span class="text-[10px] opacity-40 font-bold">${rec.dateSaved}</span></div><div class="mb-6"><p class="text-[10px] uppercase font-bold opacity-50">Total Paid</p><p class="text-3xl font-black text-blue-400">₱${rec.total.toLocaleString()}</p></div><div class="flex gap-2"><button onclick="openHistoryEditor(${rec.id})" class="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded text-xs font-bold uppercase transition">View / Edit</button><button onclick="deleteHistory(${rec.id})" class="px-3 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition">✕</button></div>`; grid.appendChild(card); }); }
+        function deleteHistory(id) { if(confirm("PERMANENTLY DELETE this record? This cannot be undone.")) { billHistory = billHistory.filter(i => i.id !== id); localStorage.setItem(getKey('billHistory'), JSON.stringify(billHistory)); renderOverview(); } }
+        function openHistoryEditor(id) { editingHistoryId = id; const record = billHistory.find(i => i.id === id); if(!record) return; document.getElementById('modal-title').innerText = record.name; tempEditData = JSON.parse(JSON.stringify(record.items || [])); renderModalTable(); document.getElementById('edit-modal').classList.remove('hidden'); }
+        function renderModalTable() { const tbody = document.getElementById('modal-body'); tbody.innerHTML = ""; tempEditData.forEach((item, idx) => { const total = item.price + item.charge; tbody.innerHTML += `<tr><td contenteditable="true" onblur="updateTemp(${idx}, 'name', this.innerText)" class="bg-white/5 p-2 rounded">${item.name}</td><td contenteditable="true" onblur="updateTemp(${idx}, 'price', this.innerText)" class="bg-white/5 p-2 rounded">${item.price}</td><td contenteditable="true" onblur="updateTemp(${idx}, 'charge', this.innerText)" class="bg-white/5 p-2 rounded">${item.charge}</td><td class="font-bold">₱${total}</td><td><select onchange="updateTemp(${idx}, 'status', this.value)" class="bg-black text-xs p-1 rounded"><option value="PENDING" ${item.status !== 'PAID' ? 'selected' : ''}>PENDING</option><option value="PAID" ${item.status === 'PAID' ? 'selected' : ''}>PAID</option></select></td><td><button onclick="removeTemp(${idx})" class="text-red-500 text-xs">Del</button></td></tr>`; }); }
+        function updateTemp(idx, field, val) { if (field === 'price' || field === 'charge') { let clean = val.replace(/[^\d]/g, ''); tempEditData[idx][field] = parseInt(clean) || 0; } else { tempEditData[idx][field] = val; } renderModalTable(); }
+        function addModalRow() { tempEditData.push({name:"New", price:0, charge:0, status:"PAID"}); renderModalTable(); }
+        function removeTemp(idx) { tempEditData.splice(idx, 1); renderModalTable(); }
+        function closeModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+        function saveModalChanges() { if(!confirm("Save changes to this record?")) return; const historyIdx = billHistory.findIndex(i => i.id === editingHistoryId); if(historyIdx !== -1) { billHistory[historyIdx].items = tempEditData; const newTotal = tempEditData.reduce((acc, b) => acc + (b.price + b.charge), 0); billHistory[historyIdx].total = newTotal; localStorage.setItem(getKey('billHistory'), JSON.stringify(billHistory)); closeModal(); renderOverview(); } }
+
+        // --- REMAINING UTILS (From previous steps) ---
+        function calculateSavings() { const amount = parseFloat(document.getElementById('savingInput').value) || 0; const pExp = parseFloat(document.getElementById('pctExpenses').value) || 0; const pEmg = parseFloat(document.getElementById('pctEmergency').value) || 0; const pSav = parseFloat(document.getElementById('pctSavings').value) || 0; document.getElementById('valExpenses').innerText = `₱${(amount * (pExp/100)).toLocaleString()}`; document.getElementById('valEmergency').innerText = `₱${(amount * (pEmg/100)).toLocaleString()}`; document.getElementById('valSavings').innerText = `₱${(amount * (pSav/100)).toLocaleString()}`; }
+        function screenshotSavings() { if(!confirm("Save Allocations Snapshot?")) return; const el = document.getElementById('saving-content-area'); const btn = document.getElementById('btn-shot-save'); btn.style.display = 'none'; const randomQuote = savingQuotes[Math.floor(Math.random() * savingQuotes.length)]; const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }); const footer = document.createElement('div'); footer.id = 'temp-ss-footer'; footer.className = "mt-8 pt-4 border-t border-white/20 text-center"; footer.innerHTML = `<p class="text-xs font-bold uppercase tracking-widest opacity-50 mb-2">Generated: ${dateStr}</p><p class="text-sm font-serif italic text-white/80">"${randomQuote}"</p>`; el.appendChild(footer); el.classList.add('saving-receipt-mode'); html2canvas(el, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => { const link = document.createElement('a'); link.download = `SmartSaving_Allocations_${Date.now()}.png`; link.href = canvas.toDataURL(); link.click(); el.classList.remove('saving-receipt-mode'); btn.style.display = 'block'; footer.remove(); }); }
+        
+        // [Existing Load Data, Event Rendering, Admin, and Timer functions kept identical]
+        function getZodiacSign(day, month) { const days = [20, 19, 21, 20, 21, 21, 23, 23, 23, 23, 22, 22]; const signs = ["♑ Capricorn", "♒ Aquarius", "♓ Pisces", "♈ Aries", "♉ Taurus", "♊ Gemini", "♋ Cancer", "♌ Leo", "♍ Virgo", "♎ Libra", "♏ Scorpio", "♐ Sagittarius", "♑ Capricorn"]; return (day < days[month]) ? signs[month] : signs[month + 1]; }
+        function getChineseZodiac(year) { const animals = ['🐵 Monkey', '🐔 Rooster', '🐶 Dog', '🐷 Pig', '🐭 Rat', '🐮 Ox', '🐯 Tiger', '🐰 Rabbit', '🐲 Dragon', '🐍 Snake', '🐴 Horse', '🐐 Goat']; return animals[year % 12]; }
+        function calculateYears(date) { return Math.abs(new Date(Date.now() - date.getTime()).getUTCFullYear() - 1970); }
+        function getDaysUntil(date) { const today = new Date(); today.setHours(0,0,0,0); const currentYear = today.getFullYear(); const thisYearDate = new Date(currentYear, date.getMonth(), date.getDate()); let diff = thisYearDate - today; if (diff < 0) { const nextYearDate = new Date(currentYear + 1, date.getMonth(), date.getDate()); diff = nextYearDate - today; } return Math.ceil(diff / (1000 * 60 * 60 * 24)); }
+        function renderEventList() { const listEl = document.getElementById('event-list'); const searchTerm = document.getElementById('globalSearch').value.toLowerCase(); listEl.innerHTML = ''; const today = new Date(); const currentMonth = today.getMonth(); let combinedEvents = userEvents.map((e, idx) => ({ ...e, origin: 'user', originalIndex: idx })); const systemEvents = phHolidays.map(h => ({ name: h.name, date: `${today.getFullYear()}-${String(h.month+1).padStart(2,'0')}-${String(h.day).padStart(2,'0')}`, type: "Holiday", notes: "Standard Philippine Holiday", origin: 'system', rawMonth: h.month })); combinedEvents = [...combinedEvents, ...systemEvents]; combinedEvents.sort((a, b) => getDaysUntil(new Date(a.date)) - getDaysUntil(new Date(b.date))); let nextEventName = "None"; let foundNext = false; let visibleCount = 0; combinedEvents.forEach((event) => { const eventDate = new Date(event.date); const daysLeft = getDaysUntil(eventDate); const yearsCount = calculateYears(eventDate); const isSearching = searchTerm.length > 0; const matchesSearch = event.name.toLowerCase().includes(searchTerm) || event.type.toLowerCase().includes(searchTerm); if (isSearching && !matchesSearch) return; if (!isSearching && event.type === 'Holiday' && event.rawMonth !== currentMonth) return; visibleCount++; if (!foundNext) { nextEventName = `${event.name} (${daysLeft} days)`; foundNext = true; } let badgeColor = "bg-gray-600", borderColor = "border-other", badgeText = "Event"; switch(event.type) { case "Birthday": badgeText = `Turns ${yearsCount + 1}`; badgeColor = "bg-blue-600"; borderColor = "border-birthday"; break; case "Wedding": badgeText = `${yearsCount + 1}th Anniv`; badgeColor = "bg-pink-600"; borderColor = "border-wedding"; break; case "Graduation": badgeText = `${yearsCount} Yrs Ago`; badgeColor = "bg-yellow-600"; borderColor = "border-graduation"; break; case "Funeral": badgeText = `${yearsCount} Yrs Gone`; badgeColor = "bg-slate-500"; borderColor = "border-funeral"; break; case "Holiday": badgeText = "HOLIDAY"; badgeColor = "bg-emerald-600"; borderColor = "border-holiday"; break; } let zodiacHTML = ''; if(event.type === 'Birthday') zodiacHTML = `<div class="mt-2 flex flex-wrap gap-2"><span class="text-[9px] font-bold uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded-full">${getZodiacSign(eventDate.getDate(), eventDate.getMonth())}</span><span class="text-[9px] font-bold uppercase bg-red-500/20 text-red-300 border border-red-500/30 px-2 py-1 rounded-full">Year of the ${getChineseZodiac(eventDate.getFullYear())}</span></div>`; let actions = event.origin === 'user' ? `<div class="flex gap-2 mt-4 pt-4 border-t border-white/5"><button onclick="startEditEvent(${event.originalIndex})" class="flex-1 py-2 rounded-lg bg-white/5 hover:bg-blue-600/20 hover:text-blue-400 text-[10px] font-black uppercase transition">Edit</button><button onclick="deleteEvent(${event.originalIndex})" class="px-3 rounded-lg bg-white/5 hover:bg-red-500/20 hover:text-red-400 font-bold transition">✕</button></div>` : `<div class="mt-4 pt-4 border-t border-white/5 text-[10px] font-black uppercase text-center opacity-30 tracking-widest">System Locked</div>`; const card = `<div class="glass p-6 relative card-anim group hover:bg-white/10 transition duration-300 ${borderColor} bg-white/5">${(foundNext && nextEventName.startsWith(event.name)) ? '<div class="absolute top-4 right-4 text-[10px] font-black bg-yellow-500 text-black px-2 py-1 rounded">UP NEXT</div>' : ''}<div class="flex flex-col gap-1 mb-3"><div class="flex items-center gap-2"><span class="text-[9px] font-black uppercase px-2 py-1 rounded text-white ${badgeColor}">${badgeText}</span><span class="text-[10px] font-bold opacity-60 uppercase">${eventDate.toDateString().split(' ').slice(1,3).join(' ')}</span></div><h3 class="text-xl font-extrabold text-white leading-tight cursor-pointer hover:text-blue-400 transition" onclick="showEventDetails('${event.name}', '${event.date}', '${event.type}', '${event.notes || ""}')">${event.name}</h3></div><div class="text-2xl font-black text-gray-200">${daysLeft === 0 ? "<span class='text-green-400 animate-pulse'>TODAY!</span>" : daysLeft + "<span class='text-sm opacity-40 font-bold ml-1'>DAYS</span>"}</div>${zodiacHTML}${actions}</div>`; listEl.innerHTML += card; }); document.getElementById('event-total-count').innerText = visibleCount; document.getElementById('event-next-up').innerText = nextEventName; }
+        function handleAddEvent() { const type = document.getElementById('eventTypeInput').value; const date = document.getElementById('eventDateInput').value; const name = document.getElementById('eventNameInput').value; const notes = document.getElementById('eventNoteInput').value; if (name === '' || date === '') { alert("Please fill in Name and Date!"); return; } const newEvent = { type, name, date, notes }; if (eventEditIndex === -1) userEvents.push(newEvent); else { userEvents[eventEditIndex] = newEvent; eventEditIndex = -1; document.getElementById('eventActionBtn').innerText = "Add Event"; } localStorage.setItem(getKey('userEvents'), JSON.stringify(userEvents)); document.getElementById('eventNameInput').value = ''; document.getElementById('eventDateInput').value = ''; document.getElementById('eventNoteInput').value = ''; renderEventList(); }
+        function startEditEvent(index) { eventEditIndex = index; const e = userEvents[index]; document.getElementById('eventTypeInput').value = e.type || 'Other'; document.getElementById('eventNameInput').value = e.name; document.getElementById('eventDateInput').value = e.date; document.getElementById('eventNoteInput').value = e.notes || ''; document.getElementById('eventActionBtn').innerText = "UPDATE EVENT"; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        function deleteEvent(index) { if(confirm("Remove this event?")) { userEvents.splice(index, 1); if (index === eventEditIndex) { eventEditIndex = -1; document.getElementById('eventActionBtn').innerText = "Add Event"; } localStorage.setItem(getKey('userEvents'), JSON.stringify(userEvents)); renderEventList(); } }
+        function showEventDetails(name, dateStr, type, notes) { const date = new Date(dateStr); document.getElementById('modalName').innerText = name; document.getElementById('modalType').innerText = type; document.getElementById('modalDate').innerText = date.toDateString(); document.getElementById('modalNotes').innerText = notes || "No notes."; document.getElementById('modalCalculated').innerText = `${calculateYears(date)} years count since this date.`; document.getElementById('event-modal-overlay').classList.remove('hidden'); }
+        function closeEventModal() { document.getElementById('event-modal-overlay').classList.add('hidden'); }
+        function openHolidayList() { const container = document.getElementById('holiday-table-container'); const currentYear = new Date().getFullYear(); const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]; let html = '<div class="space-y-2">'; phHolidays.forEach(h => { const isPassed = new Date() > new Date(currentYear, h.month, h.day + 1); html += `<div class="flex items-center gap-4 p-3 rounded-lg ${isPassed ? 'opacity-30' : 'opacity-100 bg-white/5'}"><div class="bg-emerald-900 text-emerald-300 w-12 h-12 flex flex-col items-center justify-center rounded-lg border border-emerald-500/20"><span class="text-[8px] font-bold uppercase">${months[h.month]}</span><span class="text-lg font-extrabold leading-none">${h.day}</span></div><div><p class="font-bold text-white text-sm">${h.name}</p><p class="text-[10px] text-gray-400 uppercase tracking-widest">${isPassed ? 'Passed' : 'Upcoming'}</p></div></div>`; }); container.innerHTML = html + '</div>'; document.getElementById('holiday-list-overlay').classList.remove('hidden'); }
+        function closeHolidayList() { document.getElementById('holiday-list-overlay').classList.add('hidden'); }
+        function loadData() {
+            const list = document.getElementById('listDisplay'); let items = JSON.parse(localStorage.getItem(getKey(currentTab)) || "[]"); let q = document.getElementById('globalSearch').value.toLowerCase();
+            if (currentTab === 'events') { renderEventList(); return; } 
+            if(q) { items = items.filter(i => i.title.toLowerCase().includes(q) || (i.username && i.username.toLowerCase().includes(q)) || (i.location && i.location.toLowerCase().includes(q))); } else { if (currentTab === 'movies' && !showWatchedMovies) items = items.filter(i => !i.completed); }
+            list.innerHTML = ""; const now = new Date();
+            if (currentTab === 'school') { updateSchoolStats(items); items.sort((a,b) => { if (a.completed !== b.completed) return a.completed - b.completed; return new Date(a.dateValue) - new Date(b.dateValue); }); } else if (currentTab === 'movies') { items.sort((a,b) => (new Date(a.dateValue) - new Date(b.dateValue))); } else { items.reverse(); }
+            items.forEach(item => { const div = document.createElement('div'); div.className = "glass p-6 group relative border-l-2 hover:border-blue-500 transition-all"; if (currentTab === 'movies') { const d = new Date(item.dateValue); const dateZero = new Date(d); dateZero.setHours(0,0,0,0); const todayZero = new Date(); todayZero.setHours(0,0,0,0); let badgeText = "", badgeClass = "", displayDate = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); if(item.completed) { badgeText = "WATCHED"; badgeClass = "bg-green-600 text-white"; } else { if (dateZero.getTime() > todayZero.getTime()) { badgeText = "RELEASED SOON"; badgeClass = "bg-blue-600 text-white"; } else if (dateZero.getTime() === todayZero.getTime()) { badgeText = "AVAILABLE NOW"; badgeClass = "bg-emerald-500 text-white animate-pulse"; displayDate = "TODAY"; } else { badgeText = "PENDING"; badgeClass = "bg-red-500/80 text-white"; } } div.innerHTML = `<div class="flex flex-col h-full space-y-4"><div class="flex justify-between items-start"><h3 class="text-xl font-extrabold ${item.completed ? 'line-through opacity-40' : 'text-white'}">${item.title}</h3><div class="flex flex-col gap-2"><button onclick="confirmDelete(${item.id})" class="text-red-500 opacity-0 group-hover:opacity-100">✕</button><button onclick="editMovie(${item.id})" class="text-blue-400 opacity-0 group-hover:opacity-100 font-bold" title="Edit">✎</button></div></div><div class="flex gap-2 items-center"><span class="movie-badge ${badgeClass}">${badgeText}</span><span class="text-[10px] opacity-60 uppercase font-bold">${displayDate}</span></div><div class="pt-4 border-t border-white/5"><label class="flex items-center space-x-3 cursor-pointer"><input type="checkbox" ${item.completed ? 'checked' : ''} onclick="toggleTaskStatus(${item.id})" class="h-4 w-4 rounded bg-white/5 border-white/10 checked:bg-blue-600"><span class="text-[10px] font-black uppercase opacity-60">Mark Watched</span></label></div></div>`; } else if (currentTab === 'school') { const deadline = new Date(item.dateValue); const timeDiff = deadline - now; const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24)); let deadlineText = daysLeft < 0 ? `Overdue by ${Math.abs(daysLeft)} days` : (daysLeft === 0 ? "DUE TODAY" : `Due in ${daysLeft} days`); let deadlineColor = daysLeft < 0 ? "text-red-500" : (daysLeft === 0 ? "text-orange-400" : "text-gray-400"); let doneBadge = ""; if(item.completed) { deadlineText = "Completed"; deadlineColor = "text-green-500"; doneBadge = item.dateCompleted ? `<span class="ml-2 text-[10px] font-black bg-green-900/50 text-green-400 px-2 py-0.5 rounded">DONE: ${item.dateCompleted}</span>` : ""; } let typeColor = "bg-gray-600"; if(item.taskType === 'EXAM') typeColor = "bg-red-600"; if(item.taskType === 'QUIZ') typeColor = "bg-purple-600"; if(item.taskType === 'PROJ') typeColor = "bg-yellow-600"; if(item.taskType === 'HW') typeColor = "bg-blue-600"; div.innerHTML = `<div class="flex flex-col h-full gap-4"><div class="flex justify-between items-start"><div class="flex-1"><div class="flex items-center gap-2 mb-2"><span class="text-[9px] font-black uppercase px-2 py-1 rounded text-white ${typeColor}">${item.taskType || 'TASK'}</span><span class="text-[10px] font-bold uppercase ${deadlineColor}">${deadlineText}</span>${doneBadge}</div><h3 class="text-xl font-extrabold tracking-tight ${item.completed ? 'line-through opacity-40 text-green-500' : 'text-white'} leading-tight">${item.title}</h3></div><div class="flex flex-col gap-2"><button onclick="confirmDelete(${item.id})" class="text-red-500 opacity-0 group-hover:opacity-100 p-1 transition-all">✕</button><button onclick="editSchoolTask(${item.id})" class="text-blue-400 opacity-0 group-hover:opacity-100 p-1 transition-all font-bold text-lg" title="Edit">✎</button></div></div><div class="pt-4 border-t border-white/5 mt-auto"><label class="flex items-center space-x-3 cursor-pointer group/chk"><input type="checkbox" ${item.completed ? 'checked' : ''} onclick="toggleTaskStatus(${item.id})" class="h-5 w-5 rounded bg-white/5 border-white/10 checked:bg-blue-600 transition-all"><span class="text-[10px] font-black uppercase opacity-60 group-hover/chk:text-white transition">Mark Complete</span></label></div></div>`; } else if (currentTab === 'vault') { div.innerHTML = `<div class="flex flex-col gap-3"><div class="flex justify-between items-start"><h3 class="text-xl font-black text-blue-400" id="t-${item.id}">${item.title}</h3><div class="flex gap-2"><button onclick="editVault(${item.id})" class="text-blue-500 opacity-20 group-hover:opacity-100 transition text-[10px] font-black uppercase">Edit</button><button onclick="confirmDelete(${item.id})" class="text-red-500 opacity-20 group-hover:opacity-100 transition">✕</button></div></div><div class="space-y-2"><div class="bg-white/5 p-2 rounded-lg text-sm select-all" id="u-${item.id}">${item.username}</div><div class="bg-white/5 p-2 rounded-lg flex justify-between items-center"><p id="p-${item.id}" class="text-sm">••••••••</p><div class="flex gap-2"><button id="s-${item.id}" onclick="saveVault(${item.id})" class="hidden text-green-500 font-bold text-[10px]">SAVE</button><button onclick="toggleVP(${item.id},'${item.password}')" class="text-blue-500 font-bold text-[10px]">SHOW</button></div></div></div></div>`; } else if (currentTab === 'personal') { const isUsed = item.status === 'USED'; const statusColor = isUsed ? 'border-orange-500 bg-orange-500/10' : 'border-blue-500'; const btnText = isUsed ? 'Return' : 'Use'; const btnClass = isUsed ? 'bg-green-600 hover:bg-green-500' : 'bg-orange-600 hover:bg-orange-500'; let logsHtml = item.logs.map(l => `<div class="log-entry flex justify-between"><span>${l.action}</span><span>${l.date}</span></div>`).join(''); if(!logsHtml) logsHtml = '<div class="text-[9px] opacity-30 italic">No history yet</div>'; div.className = `glass p-6 border-l-4 ${statusColor} transition-all relative`; div.innerHTML = `<div class="flex justify-between items-start mb-2"><div><h3 class="text-xl font-black text-white leading-tight">${item.title}</h3><p class="text-xs font-bold text-blue-400 uppercase tracking-wide mt-1">📍 ${item.location}</p></div><button onclick="confirmDelete(${item.id})" class="text-red-500 opacity-20 hover:opacity-100 transition font-bold">✕</button></div><div class="flex items-center justify-between bg-white/5 rounded-lg p-2 mb-4"><span class="text-[10px] font-bold uppercase opacity-60">Stock</span><div class="flex items-center gap-3"><button onclick="updateStock(${item.id}, -1)" class="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold">-</button><span class="text-lg font-black">${item.stock}</span><button onclick="updateStock(${item.id}, 1)" class="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold">+</button></div></div><button onclick="togglePersonalStatus(${item.id})" class="w-full ${btnClass} py-2 rounded-lg font-bold text-xs uppercase mb-4 transition">${btnText}</button><div class="border-t border-white/10 pt-2"><p class="text-[9px] font-bold uppercase opacity-40 mb-1">Activity Log</p><div class="space-y-1">${logsHtml}</div></div>`; } else { div.innerHTML = `<div class="flex justify-between items-start"><span class="text-xl font-bold text-white">${item.title}</span><button onclick="confirmDelete(${item.id})" class="text-red-500 opacity-0 group-hover:opacity-100 p-2 transition">✕</button></div><p class="text-[9px] mt-4 opacity-30 font-bold">LOGGED: ${item.lastEdited}</p>`; }
+                list.appendChild(div);
+            });
+        }
+        function loadSettings() { let uData = registeredUsers.find(u => u.user === currentUser) || adminUser; document.getElementById('setUser').value = currentUser; document.getElementById('setName').value = uData.name; document.getElementById('setMotivationName').value = uData.motivation || ""; document.getElementById('setCourse').value = uData.course || ""; document.getElementById('setPass').value = ""; }
+        function renderAdminPanel() { const tbody = document.getElementById('admin-user-list'); tbody.innerHTML = ""; registeredUsers.forEach((user, idx) => { const tr = document.createElement('tr'); tr.className = "border-b border-white/5 hover:bg-white/5 transition"; const isBlocked = user.blocked === true; const blockText = isBlocked ? "UNBLOCK" : "⊘ BLOCK"; const blockClass = isBlocked ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400"; tr.innerHTML = `<td class="p-3 font-bold ${isBlocked ? 'text-red-500 line-through' : 'text-white'}">${user.user}</td><td class="p-3 text-sm">${user.name}</td><td class="p-3 text-sm font-mono opacity-60">${user.recovery}</td><td class="p-3 flex items-center gap-2"><input type="password" id="admin-pass-${idx}" value="${user.pass}" class="bg-black/30 p-2 rounded text-xs w-24 border border-white/10 outline-none" disabled><button onclick="toggleAdminPassVisibility(${idx})" class="text-xs bg-white/5 p-2 rounded hover:bg-white/10">👁️</button><button onclick="enableAdminEdit(${idx})" id="edit-btn-${idx}" class="text-xs bg-blue-600/20 text-blue-400 p-2 rounded font-bold hover:bg-blue-600/30">EDIT</button><button onclick="saveAdminEdit(${idx})" id="save-btn-${idx}" class="hidden text-xs bg-green-600 text-white p-2 rounded font-bold hover:bg-green-500">SAVE</button></td><td class="p-3"><div class="flex gap-2"><button onclick="toggleBlockUser(${idx})" class="text-[10px] font-black px-3 py-2 rounded ${blockClass} hover:opacity-80">${blockText}</button><button onclick="deleteUser(${idx})" class="text-[10px] font-black px-3 py-2 rounded bg-red-600 text-white hover:bg-red-500">🗑️ DELETE</button></div></td>`; tbody.appendChild(tr); }); }
+        function toggleAdminPassVisibility(idx) { const inp = document.getElementById(`admin-pass-${idx}`); inp.type = inp.type === "password" ? "text" : "password"; }
+        function enableAdminEdit(idx) { document.getElementById(`admin-pass-${idx}`).disabled = false; document.getElementById(`admin-pass-${idx}`).classList.remove('bg-black/30'); document.getElementById(`admin-pass-${idx}`).classList.add('bg-white/10', 'text-white'); document.getElementById(`edit-btn-${idx}`).classList.add('hidden'); document.getElementById(`save-btn-${idx}`).classList.remove('hidden'); }
+        function saveAdminEdit(idx) { const newPass = document.getElementById(`admin-pass-${idx}`).value.trim(); if(newPass) { registeredUsers[idx].pass = newPass; localStorage.setItem('OCH_Users', JSON.stringify(registeredUsers)); alert(`Password updated for user: ${registeredUsers[idx].user}`); renderAdminPanel(); } else { alert("Password cannot be empty."); } }
+        function toggleBlockUser(idx) { if(registeredUsers[idx].user === 'HAZARD') { alert("Cannot block Admin."); return; } registeredUsers[idx].blocked = !registeredUsers[idx].blocked; localStorage.setItem('OCH_Users', JSON.stringify(registeredUsers)); renderAdminPanel(); const status = registeredUsers[idx].blocked ? "BLOCKED" : "UNBLOCKED"; alert(`User ${registeredUsers[idx].user} has been ${status}.`); }
+        function deleteUser(idx) { if(registeredUsers[idx].user === 'HAZARD') { alert("Cannot delete Admin."); return; } if(confirm(`PERMANENTLY DELETE user "${registeredUsers[idx].user}"? This cannot be undone.`)) { const targetUser = registeredUsers[idx].user; ['school', 'house', 'movies', 'personal', 'vault', 'currentBills', 'billHistory', 'classSchedule', 'userEvents'].forEach(type => { localStorage.removeItem(`${targetUser}_${type}`); }); registeredUsers.splice(idx, 1); localStorage.setItem('OCH_Users', JSON.stringify(registeredUsers)); renderAdminPanel(); } }
+        function confirmProtocolChange() { if(confirm("Apply changes?")) { const u = document.getElementById('setUser').value.trim(); const n = document.getElementById('setName').value.trim(); const pass = document.getElementById('setPass').value.trim(); if(currentUser==='HAZARD') return alert("Admin locked."); const idx = registeredUsers.findIndex(x => x.user === currentUser); if(idx > -1) { if(u !== currentUser) { if(registeredUsers.find(x => x.user === u)) return alert("Username taken"); registeredUsers[idx].user = u; ['school', 'house', 'movies', 'personal', 'vault', 'currentBills', 'billHistory', 'classSchedule', 'userEvents'].forEach(t => { const d = localStorage.getItem(`${currentUser}_${t}`); if(d) { localStorage.setItem(`${u}_${t}`, d); localStorage.removeItem(`${currentUser}_${t}`); } }); currentUser = u; } registeredUsers[idx].name = n; if(pass) registeredUsers[idx].pass = pass; registeredUsers[idx].motivation = document.getElementById('setMotivationName').value; registeredUsers[idx].course = document.getElementById('setCourse').value; localStorage.setItem('OCH_Users', JSON.stringify(registeredUsers)); alert("Updated."); location.reload(); } } }
+        function updateTimerDisplay() { const m = Math.floor(timeLeft / 60), s = timeLeft % 60; const fmt = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`; document.getElementById('timer-display-fs').innerText = fmt; }
+        function setTimer(mins) { timeLeft = mins * 60; updateTimerDisplay(); }
+        function validateTime(el) { const p = el.innerText.split(':'); if(p.length === 2) { timeLeft = (parseInt(p[0]) * 60) + (parseInt(p[1]) || 0); updateTimerDisplay(); } }
+        function toggleTimer() { if (isRunning) { clearInterval(timerInterval); document.getElementById('fs-start-btn').innerText = "Resume"; } else { timerInterval = setInterval(() => { if (timeLeft > 0) { timeLeft--; updateTimerDisplay(); } else { clearInterval(timerInterval); exitFocus(); } }, 1000); document.getElementById('fs-start-btn').innerText = "Pause"; } isRunning = !isRunning; }
+        function enterFocus() { document.getElementById('focus-overlay').style.display = 'flex'; toggleTimer(); }
+        function exitFocus() { document.getElementById('focus-overlay').style.display = 'none'; if(isRunning) toggleTimer(); }
+        updateTimerDisplay();
+    </script>
+</body>
+</html>
